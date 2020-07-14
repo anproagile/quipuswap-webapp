@@ -38,17 +38,12 @@
           <span>50000</span>
         </div>
       </FormInfo>
-
-      <div v-if="allKnownBakers">
-        {{ allKnownBakers[0].name }}
-      </div>
     </Form>
   </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from "vue-property-decorator";
-import { getAllKnownBakers, BBKnownBaker } from "@/baking-bad";
 import NavTabs from "@/components/NavTabs.vue";
 import NavGovernance from "@/components/NavGovernance.vue";
 import Form, { FormField, FormIcon, FormInfo } from "@/components/Form";
@@ -66,15 +61,5 @@ import Form, { FormField, FormIcon, FormInfo } from "@/components/Form";
 export default class VoteBaker extends Vue {
   currentCandidate: string = "tz1W5VkdB5s7ENMESVBtwyt9kyvLqPcUczRT";
   nextCandidate: string = "tz1NortRftucvAkD1J58L32EhSVrQEWJCEnB";
-
-  allKnownBakers: BBKnownBaker[] = [];
-
-  async mounted() {
-    try {
-      this.allKnownBakers = await getAllKnownBakers();
-    } catch (err) {
-      console.error(err);
-    }
-  }
 }
 </script>

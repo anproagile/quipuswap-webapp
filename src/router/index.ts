@@ -5,7 +5,6 @@ import Swap from "@/views/Swap.vue";
 import Send from "@/views/Send.vue";
 import AddLiquidity from "@/views/AddLiquidity.vue";
 import RemoveLiquidity from "@/views/RemoveLiquidity.vue";
-import AddToken from "@/views/AddToken.vue";
 import VoteBaker from "@/views/VoteBaker.vue";
 import DelegateVote from "@/views/DelegateVote.vue";
 import Veto from "@/views/Veto.vue";
@@ -26,11 +25,6 @@ const routes: RouteConfig[] = [
     path: "/invest/remove-liquidity",
     name: "RemoveLiquidity",
     component: RemoveLiquidity,
-  },
-  {
-    path: "/invest/add-token",
-    name: "AddToken",
-    component: AddToken,
   },
   { path: "/governance", redirect: "/governance/vote-baker" },
   {

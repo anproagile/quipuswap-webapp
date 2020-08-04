@@ -21,7 +21,7 @@
       </div>
 
       <div class="flex items-center">
-        <div v-if="withSelect" class="append flex">
+        <div v-if="withSelect" class="append flex relative">
           <button
             @click="toggleSearch"
             class="flex text-white border-accent border-2 items-center rounded-3px py-2 px-3 text-sm sm:text-base whitespace-no-wrap flex-shrink-0 focus:outline-none"
@@ -43,6 +43,17 @@
               v-if="!onlyTezos"
             />
           </button>
+
+          <div
+            v-if="!onlyTezos && selectedToken && selectedToken.type === 'token' && !isLoading"
+            class="absolute w-full flex justify-center"
+            style="top: 100%;"
+          >
+            <button
+              class="p-1 text-xs text-accent font-light opacity-75 hover:underline hover:opacity-100 focus:outline-none whitespace-no-wrap"
+              @click="() => copyToCB(this.selectedToken.id)"
+            >Copy contract address</button>
+          </div>
         </div>
       </div>
     </div>
@@ -55,7 +66,7 @@
           placeholder="Search..."
         />
       </div>
-      <div class="overflow-auto" style="max-height: 13.5rem">
+      <div class="overflow-auto" style="max-height: 200px">
         <template v-if="filteredTokens.length">
           <TokenItem
             v-for="token in filteredTokens"
@@ -149,6 +160,15 @@ export default class FormField extends Vue {
     this.localToken = token;
     this.isSearchOpened = false;
     this.$emit("selectToken", token);
+  }
+
+  copyToCB(text: string) {
+    const el = document.createElement("textarea");
+    el.value = text;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand("copy");
+    document.body.removeChild(el);
   }
 }
 </script>

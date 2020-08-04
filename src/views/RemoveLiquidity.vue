@@ -32,21 +32,17 @@
             <div v-if="inTokens" class="flex flex-col fieldval">
               <div class="mb-1">
                 <span class="opacity-75 mr-1">+</span>
-                <span class="tracking-wide">
-                  {{
+                <span class="tracking-wide">{{
                   formatNum(inTokens.tezos, 6)
-                  }}
-                </span>
+                }}</span>
                 <span class="ml-1 text-sm opacity-90">XTZ</span>
               </div>
 
               <div class="mb-1">
                 <span class="opacity-75 mr-1">+</span>
-                <span class="tracking-wide">
-                  {{
+                <span class="tracking-wide">{{
                   formatNum(inTokens.token, 0)
-                  }}
-                </span>
+                }}</span>
                 <span class="ml-1 text-sm opacity-90">Token</span>
               </div>
             </div>
@@ -84,7 +80,9 @@
       </FormInfo>
     </Form>
 
-    <div class="mx-auto text-center mt-8 mb-8 text-text text-sm font-normal"></div>
+    <div
+      class="mx-auto text-center mt-8 mb-8 text-text text-sm font-normal"
+    ></div>
     <div class="flex justify-center text-center">
       <SubmitBtn @click="removeLiquidity" :disabled="!valid">
         <template v-if="!processing">{{ remLiqStatus }}</template>
@@ -211,8 +209,7 @@ export default class RemoveLiquidity extends Vue {
       if (this.selectedToken && this.account.pkh) {
         const dexStorage = await getDexStorage(this.selectedToken.exchange);
         const shares = await dexStorage.shares.get(this.account.pkh);
-        const val = shares ? shares.toString() : "0";
-        this.myShares = val === "1000" ? "999" : val;
+        this.myShares = shares ? shares.toString() : "0";
       }
     } catch (err) {
       if (process.env.NODE_ENV === "development") {
@@ -291,10 +288,7 @@ export default class RemoveLiquidity extends Vue {
       const selTk = this.selectedToken!;
 
       const dexStorage = await getDexStorage(selTk.exchange);
-      const mySharesPure = await dexStorage.shares.get(this.account.pkh);
-      const myShares = new BigNumber(mySharesPure).isEqualTo(1000)
-        ? "999"
-        : mySharesPure;
+      const myShares = await dexStorage.shares.get(this.account.pkh);
 
       if (!myShares || shares.isGreaterThan(myShares)) {
         throw new Error("Not Enough Shares");
@@ -329,7 +323,7 @@ export default class RemoveLiquidity extends Vue {
     }
     this.processing = false;
 
-    await new Promise((res) => setTimeout(res, 5000));
+    await new Promise(res => setTimeout(res, 5000));
     this.remLiqStatus = this.defaultRemLiqStatus;
   }
 

@@ -54,15 +54,76 @@ export async function getBalance(accountPkh: string, asset: QSAsset) {
   }
 }
 
-export async function getNewTokenData(
+export async function getTokenDecimals(
+  tokenType: QSTokenType,
+  tokenAddress: string,
+  tokenId?: number
+): Promise<number> {
+  try {
+    if (tokenType === QSTokenType.FA1_2) {
+      const tzipFetchableContract = await getTzip16Contract(tokenAddress);
+      const { metadata } = await tzipFetchableContract.tzip16().getMetadata();
+      const views = await tzipFetchableContract.tzip16().metadataViews();
+      const decimalsFromView = await views
+        .decimals?.()
+        .executeView()
+        .catch(() => undefined);
+      const onetokenFromView = await views
+        .onetoken?.()
+        .executeView()
+        .catch(() => undefined);
+      const decimalsFromViews =
+        decimalsFromView || (onetokenFromView && Math.log10(onetokenFromView));
+      // @ts-ignore
+      return metadata.decimals || decimalsFromViews || 0;
+    }
+
+    if (tokenType === QSTokenType.FA2) {
+      let views: Record<string, () => View> = {};
+      try {
+        const tzip16FetchableContract = await getTzip16Contract(tokenAddress);
+        views = await tzip16FetchableContract.tzip16().metadataViews();
+      } catch (e) {}
+
+      const tzipFetchableContract = await getTzip12Contract(tokenAddress);
+      const tokenMetadata = await tzipFetchableContract
+        // @ts-ignore
+        .tzip12()
+        .getTokenMetadata(tokenId!);
+      const { decimals: decimalsFromMetadata } = tokenMetadata;
+      if (typeof decimalsFromMetadata === "number") {
+        return decimalsFromMetadata;
+      }
+      return (
+        views
+          .token_metadata?.()
+          .executeView(tokenId!)
+          .then(data => data.decimals)
+          .catch(() => undefined) || 0
+      );
+    }
+  } catch {
+    return 0;
+  }
+
+  if (tokenType === QSTokenType.XTZ) {
+    return 6;
+  }
+
+  if (tokenType === QSTokenType.TzBTC) {
+    return 8;
+  }
+
+  return 0;
+}
+
+export async function getNewTokenBalance(
   accountPkh: string,
   tokenType: QSTokenType,
   tokenAddress: string,
   tokenId?: number
 ) {
   let nat: BigNumber | undefined;
-  let shouldTryGetMetadata = true;
-  let decimals = 0;
 
   switch (tokenType) {
     case QSTokenType.FA1_2:
@@ -70,38 +131,13 @@ export async function getNewTokenData(
 
       try {
         nat = await contract.views.getBalance(accountPkh).read();
-      } catch {
-        shouldTryGetMetadata = false;
-      }
+      } catch {}
 
       if (!nat || nat.isNaN()) {
         nat = new BigNumber(0);
       }
 
-      if (shouldTryGetMetadata) {
-        try {
-          const tzipFetchableContract = await getTzip16Contract(tokenAddress);
-          const {
-            metadata,
-          } = await tzipFetchableContract.tzip16().getMetadata();
-          const views = await tzipFetchableContract.tzip16().metadataViews();
-          const decimalsFromView = await views
-            .decimals?.()
-            .executeView()
-            .catch(() => undefined);
-          const onetokenFromView = await views
-            .onetoken?.()
-            .executeView()
-            .catch(() => undefined);
-          const decimalsFromViews =
-            decimalsFromView ||
-            (onetokenFromView && Math.log10(onetokenFromView));
-          // @ts-ignore
-          decimals = metadata.decimals || decimalsFromViews || 0;
-        } catch {}
-      }
-
-      return { bal: nat, decimals };
+      return nat;
 
     case QSTokenType.FA2:
       const fa2Contract = await getContract(tokenAddress);
@@ -115,46 +151,13 @@ export async function getNewTokenData(
           .balance_of([{ owner: accountPkh, token_id: tokenId }])
           .read();
         nat = response[0].balance;
-      } catch {
-        shouldTryGetMetadata = false;
-      }
+      } catch {}
 
       if (!nat || nat.isNaN()) {
         nat = new BigNumber(0);
       }
 
-      if (shouldTryGetMetadata) {
-        try {
-          let views: Record<string, () => View> = {};
-          try {
-            const tzip16FetchableContract = await getTzip16Contract(
-              tokenAddress
-            );
-            views = await tzip16FetchableContract.tzip16().metadataViews();
-          } catch (e) {}
-
-          const tzipFetchableContract = await getTzip12Contract(tokenAddress);
-          const tokenMetadata = await tzipFetchableContract
-            // @ts-ignore
-            .tzip12()
-            .getTokenMetadata(tokenId!);
-          const { decimals: decimalsFromMetadata } = tokenMetadata;
-          if (typeof decimalsFromMetadata === "number") {
-            decimals = decimalsFromMetadata;
-          } else {
-            decimals =
-              (await views
-                .token_metadata?.()
-                .executeView(tokenId!)
-                .then(data => data.decimals)
-                .catch(() => undefined)) || 0;
-          }
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      return { bal: nat, decimals };
+      return nat;
 
     default:
       throw new Error("Token type not supported");

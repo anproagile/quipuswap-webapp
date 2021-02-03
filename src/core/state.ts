@@ -19,6 +19,7 @@ import {
   MAINNET_TOKENS,
   TESTNET_TOKENS,
 } from "./defaults";
+import { getTokenDecimals } from "./assets";
 
 export const Tezos = new TezosToolkit(
   new FastRpcClient(getNetwork().rpcBaseURL)
@@ -79,7 +80,7 @@ export function approveToken(
   if (token.tokenType === QSTokenType.FA2) {
     return tokenContract.methods.update_operators([
       {
-        ["add_operator"]: {
+        add_operator: {
           owner: from,
           operator: to,
           token_id: token.fa2TokenId,
@@ -91,17 +92,17 @@ export function approveToken(
   }
 }
 
-function toUnknownToken(
+async function toUnknownToken(
   address: string,
   exchange: string,
   tokenType: QSTokenType,
   fa2TokenId?: number
-): QSAsset {
+): Promise<QSAsset> {
   return {
     type: "token",
     tokenType,
     id: address,
-    decimals: 0,
+    decimals: await getTokenDecimals(tokenType, address, fa2TokenId),
     symbol: address,
     name: "Token",
     imgUrl: DEFAULT_TOKEN_LOGO_URL,

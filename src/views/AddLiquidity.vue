@@ -89,7 +89,7 @@ import Form, { FormField, FormIcon, FormInfo } from "@/components/Form";
 import SubmitBtn from "@/components/SubmitBtn.vue";
 
 import BigNumber from "bignumber.js";
-import store, { getAccount, useWallet } from "@/store";
+import { getAccount, useWallet } from "@/store";
 import {
   QSAsset,
   isAddressValid,
@@ -140,6 +140,7 @@ export default class AddLiquidity extends Vue {
   tezBalance: string | null = null;
   tezLoading = false;
 
+  selectedToken: QSAsset | null = null;
   tokenAmount = "";
   tokenBalance: string | null = null;
   tokenLoading = false;
@@ -149,13 +150,6 @@ export default class AddLiquidity extends Vue {
 
   processing = false;
   addLiqStatus = this.defaultAddLiqStatus;
-
-  get selectedToken(): QSAsset | null {
-    const tokenExchange = this.$route.params.token;
-    return (
-      store.state.tokens.find((t: any) => t.exchange === tokenExchange) || null
-    );
-  }
 
   get defaultAddLiqStatus() {
     return "Add Liquidity";
@@ -273,7 +267,7 @@ export default class AddLiquidity extends Vue {
   }
 
   async handleTokenSelect(token: QSAsset) {
-    this.$router.replace(`/invest/add-liquidity/${token.exchange}`);
+    this.selectedToken = token;
 
     if (!this.tezAmount) {
       this.tezAmount = "1";

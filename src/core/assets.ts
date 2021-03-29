@@ -1,20 +1,16 @@
 import BigNumber from "bignumber.js";
 import { TezosToolkit } from "@taquito/taquito";
-import { QSAsset, QSTokenType, QSTokenMetadata } from "./types";
+import { View } from "@taquito/tzip16";
+import { QSAsset, QSTokenType } from "./types";
 import {
   Tezos,
   getContract,
+  getTzip16Contract,
+  getTzip12Contract,
   getNetwork,
-  getContractForMetadata,
 } from "./state";
 import { mutezToTz } from "./helpers";
-import { DEFAULT_TOKEN_LOGO_URL } from "./defaults";
-
-const network = getNetwork();
-const lambdaView =
-  network.id === "florencenet"
-    ? "KT1BbTmNHmJp2NnQyw5qsAExEYmYuUpR2HdX"
-    : undefined;
+import { DEFAULT_TOKEN_LOGO_URL, MAINNET_TOKENS, XTZ_TOKEN } from "./defaults";
 
 export async function getBalance(accountPkh: string, asset: QSAsset) {
   let nat: BigNumber | undefined;
@@ -30,7 +26,7 @@ export async function getBalance(accountPkh: string, asset: QSAsset) {
       const contract = await getContract(asset.id);
 
       try {
-        nat = await contract.views.getBalance(accountPkh).read(lambdaView);
+        nat = await contract.views.getBalance(accountPkh).read();
       } catch {}
 
       if (!nat || nat.isNaN()) {
@@ -45,7 +41,7 @@ export async function getBalance(accountPkh: string, asset: QSAsset) {
       try {
         const response = await fa2Contract.views
           .balance_of([{ owner: accountPkh, token_id: asset.fa2TokenId }])
-          .read(lambdaView);
+          .read();
         nat = response[0].balance;
       } catch {}
 
@@ -61,71 +57,106 @@ export async function getBalance(accountPkh: string, asset: QSAsset) {
 }
 
 export async function getTokenMetadata(
-  contractAddress: string,
-  fa2TokenId?: number
-): Promise<QSTokenMetadata> {
-  const tokenId = fa2TokenId ?? 0;
+  tokenType: QSTokenType,
+  tokenAddress: string,
+  tokenId?: number
+): Promise<Pick<QSAsset, "decimals" | "symbol" | "name" | "imgUrl">> {
   const { id: networkId } = getNetwork();
-  const storageKey = `qs_tm_${networkId}_${contractAddress}_${tokenId}`;
+  const storageKey = `token_metadata_${networkId}_${tokenAddress}${
+    tokenType === QSTokenType.FA2 ? `_${tokenId}` : ""
+  }`;
   const tokenMetadataFromStorage = localStorage.getItem(storageKey);
 
   if (tokenMetadataFromStorage) {
     try {
       return JSON.parse(tokenMetadataFromStorage);
-    } catch (_err) {
+    } catch (e) {
       localStorage.removeItem(storageKey);
     }
   }
 
-  const contract = await getContractForMetadata(contractAddress);
-
-  let tokenData: any;
-  let latestErrMessage;
-
-  /**
-   * Try fetch token data with TZIP12
-   */
   try {
-    tokenData = await contract.tzip12().getTokenMetadata(tokenId);
-  } catch (err) {
-    latestErrMessage = err.message;
-  }
-
-  /**
-   * Try fetch token data with TZIP16
-   * Get them from plain tzip16 structure/scheme
-   */
-  if (!tokenData || Object.keys(tokenData).length === 0) {
-    try {
-      const { metadata } = await contract.tzip16().getMetadata();
-      tokenData = metadata;
-    } catch (err) {
-      latestErrMessage = err.message;
+    if (tokenType === QSTokenType.FA1_2) {
+      const tzipFetchableContract = await getTzip16Contract(tokenAddress);
+      const views = await tzipFetchableContract.tzip16().metadataViews();
+      const decimalsFromView = await views
+        .decimals?.()
+        .executeView()
+        .catch(() => undefined);
+      const onetokenFromView = await views
+        .onetoken?.()
+        .executeView()
+        .catch(() => undefined);
+      const decimalsFromViews =
+        decimalsFromView || (onetokenFromView && Math.log10(onetokenFromView));
+      const {
+        metadata: {
+          // @ts-ignore
+          decimals = decimalsFromViews || 0,
+          // @ts-ignore
+          symbol = tokenAddress,
+          name = "Token",
+          // @ts-ignore
+          icon = DEFAULT_TOKEN_LOGO_URL,
+        },
+      } = await tzipFetchableContract.tzip16().getMetadata();
+      const metadata = {
+        decimals,
+        symbol,
+        name,
+        imgUrl: icon,
+      };
+      localStorage.setItem(storageKey, JSON.stringify(metadata));
+      return metadata;
     }
+
+    if (tokenType === QSTokenType.FA2) {
+      let views: Record<string, () => View> = {};
+      try {
+        const tzip16FetchableContract = await getTzip16Contract(tokenAddress);
+        views = await tzip16FetchableContract.tzip16().metadataViews();
+      } catch (e) {}
+
+      const tzipFetchableContract = await getTzip12Contract(tokenAddress);
+      const decimalsFromView =
+        (await views
+          .token_metadata?.()
+          .executeView(tokenId!)
+          .then(data => data.decimals)
+          .catch(() => undefined)) || 0;
+      const {
+        decimals = decimalsFromView,
+        name = "Token",
+        symbol = tokenAddress,
+        // @ts-ignore
+        icon = DEFAULT_TOKEN_LOGO_URL,
+      } = await tzipFetchableContract.tzip12().getTokenMetadata(tokenId!);
+      const metadata = {
+        decimals,
+        symbol,
+        name,
+        imgUrl: icon,
+      };
+      localStorage.setItem(storageKey, JSON.stringify(metadata));
+      return metadata;
+    }
+  } catch (e) {
+    return {
+      decimals: 0,
+      symbol: tokenAddress,
+      name: "Token",
+      imgUrl: DEFAULT_TOKEN_LOGO_URL,
+    };
   }
 
-  if (!tokenData) {
-    // throw new MetadataParseError(latestErrMessage ?? "Unknown error");
-    tokenData = {};
+  if (tokenType === QSTokenType.XTZ) {
+    return XTZ_TOKEN;
   }
 
-  const result = {
-    decimals: tokenData.decimals ? +tokenData.decimals : 0,
-    symbol: tokenData.symbol || contractAddress,
-    name: tokenData.name || "Unknown Token",
-    thumbnailUri:
-      tokenData.thumbnailUri ??
-      tokenData.logo ??
-      tokenData.icon ??
-      tokenData.iconUri ??
-      tokenData.iconUrl ??
-      DEFAULT_TOKEN_LOGO_URL,
-  };
-  localStorage.setItem(storageKey, JSON.stringify(result));
-  return result;
+  return MAINNET_TOKENS.find(
+    ({ tokenType: candidateTokenType }) => candidateTokenType === tokenType
+  )!;
 }
-
-export class MetadataParseError extends Error {}
 
 export async function getNewTokenData(
   accountPkh: string,
@@ -142,7 +173,7 @@ export async function getNewTokenData(
       const contract = await getContract(tokenAddress);
 
       try {
-        nat = await contract.views.getBalance(accountPkh).read(lambdaView);
+        nat = await contract.views.getBalance(accountPkh).read();
       } catch {
         shouldTryGetMetadata = false;
       }
@@ -152,7 +183,7 @@ export async function getNewTokenData(
       }
 
       if (shouldTryGetMetadata) {
-        decimals = (await getTokenMetadata(tokenAddress)).decimals;
+        decimals = (await getTokenMetadata(tokenType, tokenAddress)).decimals;
       }
 
       return { bal: nat, decimals };
@@ -167,7 +198,7 @@ export async function getNewTokenData(
       try {
         const response = await fa2Contract.views
           .balance_of([{ owner: accountPkh, token_id: tokenId }])
-          .read(lambdaView);
+          .read();
         nat = response[0].balance;
       } catch {
         shouldTryGetMetadata = false;
@@ -178,7 +209,8 @@ export async function getNewTokenData(
       }
 
       if (shouldTryGetMetadata) {
-        decimals = (await getTokenMetadata(tokenAddress, tokenId)).decimals;
+        decimals = (await getTokenMetadata(tokenType, tokenAddress, tokenId))
+          .decimals;
       }
 
       return { bal: nat, decimals };

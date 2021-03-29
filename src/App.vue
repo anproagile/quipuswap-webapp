@@ -52,33 +52,12 @@
         <div class="flex justify-end flex-1 pt-4">
           <div class="hidden lg:block">
             <template v-if="!account.pkh">
-              <div class="flex flex-col">
-                <button
-                class="flex items-center w-64 h-12 mb-4 text-white transition duration-300 ease-in-out border rounded-md border-accent hover:text-accent"
-                @click="handleConnectTemple"
-              >
-                <div class="flex justify-center flex-1">
-                  <img src="@/assets/temple.png" alt="" class="w-auto h-8" />
-                </div>
-               <div>
-                  Connect Temple
-              </div>
-              <div class="flex-1" />
-              </button>
-
               <button
-                class="flex items-center w-64 h-12 text-white transition duration-300 ease-in-out border rounded-md border-primary hover:text-primary"
-                @click="handleConnectBeacon"
+                class="w-64 h-12 text-white border rounded-md border-accent"
+                @click="handleConnectForce"
               >
-              <div class="flex justify-center flex-1">
-                  <img src="@/assets/beacon.png" alt="" class="w-auto h-6" />
-                </div>
-                <div class="text-sm">
-                Connect another wallet
-                </div>
-                <div class="flex-1" />
+                Connect to a Wallet
               </button>
-              </div>
             </template>
 
             <template v-else>
@@ -96,7 +75,7 @@
                   class="flex items-center justify-center w-64 h-12 px-4 text-white border border-l-0 rounded-md cursor-pointer connect-button button-pkh border-accent"
                   @mouseover="accountLabelHovered = true"
                   @mouseleave="accountLabelHovered = false"
-                  @click="handleReconnect"
+                  @click="handleConnectForce"
                 >
                   <span>{{ accountLabel }}</span>
                 </div>
@@ -111,13 +90,72 @@
         </div>
       </header>
 
+      <!--
+      <div
+        class="absolute flex flex-row justify-between w-auto cursor-pointer network-selector align-center top-40px left-0px"
+        @click="toggleNetworkSelect"
+      >
+        <span
+          class="flex items-center justify-center w-48 h-12 text-white border rounded-lg connect-button button-network border-accent"
+        >{{ selectedNetwork.name }}</span>
+        <img
+          :class="
+            networkSelectOpened
+              ? 'z-10 right-0 transform rotate-180'
+              : 'z-10 right-0'
+          "
+          src="@/assets/arrow-down.svg"
+        />
+      </div>
+      <div class="absolute flex flex-col justify-end w-48 top-100px" v-if="networkSelectOpened">
+        <button
+          class="flex items-center justify-center w-48 h-12 my-1 text-white border rounded-lg cursor-pointer connect-button network-item border-accent"
+          :class="net.disabled ? 'opacity-50' : ''"
+          v-for="net in allNetworks"
+          :key="net.id"
+          @click="() => selectNetwork(net)"
+          :disabled="net.disabled"
+        >{{ net.name }}</button>
+      </div>
+
+      <template v-if="!account.pkh">
+        <button
+          class="absolute hidden w-56 h-12 text-white border border-accent rounded-3px top-40px right-40px md:block"
+          @click="handleConnect"
+        >Connect to a Wallet</button>
+      </template>
+
+      <template v-else>
+        <div class="absolute right-0 flex flex-row justify-center w-auto top-40px right-0px">
+          <span
+            class="flex items-center justify-center w-32 h-12 px-2 text-white border rounded-lg connect-button button-balance border-accent"
+          >
+            <span v-if="accountBalance">{{ accountBalance }} XTZ</span>
+            <div v-else class="flex items-center justify-center">
+              <Loader />
+            </div>
+          </span>
+
+          <div
+            class="flex items-center justify-center w-64 h-12 text-white border border-l-0 cursor-pointer connect-button button-pkh border-accent rounded-3px"
+            @mouseover="accountLabelHovered = true"
+            @mouseleave="accountLabelHovered = false"
+            @click="handleConnectForce"
+          >
+            <span>{{ accountLabel }}</span>
+          </div>
+        </div>
+      </template>
+
+      <img class="mx-auto mb-12" src="./assets/logo.png" />-->
+
       <router-view />
     </div>
 
     <div class="flex-1"></div>
 
     <div class="flex flex-col items-center justify-center p-4 mt-10">
-      <div class="p-4 text-sm font-light text-center text-white">
+      <div class="p-4 text-sm font-light text-white">
         <a href="https://twitter.com/madfishofficial" class="px-4">
           Twitter
         </a>
@@ -132,14 +170,6 @@
         |
         <a href="https://www.reddit.com/r/MadFishCommunity" class="px-4">
           Reddit
-        </a>
-        |
-        <a href="https://docs.quipuswap.com/faq" class="px-4">
-          FAQ
-        </a>
-        |
-        <a href="https://docs.quipuswap.com" class="px-4">
-          Docs
         </a>
       </div>
       <span class="text-sm font-light text-white">
@@ -233,25 +263,21 @@ export default class App extends Vue {
     }
   }
 
-  handleConnectTemple() {
-    this.connectWallet("temple", true);
+  handleConnect() {
+    this.connectWallet();
   }
 
-  handleConnectBeacon() {
-    this.connectWallet("beacon", true);
-  }
-
-  handleReconnect() {
-    this.connectWallet(undefined, true);
+  handleConnectForce() {
+    this.connectWallet(true);
   }
 
   logout() {
     signout();
   }
 
-  connectWallet = async (connectType?: "temple" | "beacon", forcePermission = false) => {
+  connectWallet = async (forcePermission = false) => {
     try {
-      await useWallet(connectType, forcePermission);
+      await useWallet({ forcePermission });
     } catch (err) {
       console.error(err);
     }

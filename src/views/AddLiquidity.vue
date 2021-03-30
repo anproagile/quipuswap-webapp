@@ -109,7 +109,6 @@ import {
   approveToken,
   toNat,
   fromNat,
-  deapproveFA2,
 } from "@/core";
 import { XTZ_TOKEN } from "@/core/defaults";
 import { OpKind } from "@taquito/taquito";
@@ -459,14 +458,6 @@ export default class AddLiquidity extends Vue {
             .use("investLiquidity", tokenAmountNat)
             .toTransferParams({ amount: tezAmount.toFixed() as any })
         );
-
-      deapproveFA2(
-        batch,
-        selTk,
-        tokenContract,
-        me,
-        selTk.exchange,
-      );
 
       const operation = await batch.send();
       await operation.confirmation();

@@ -160,8 +160,6 @@ import {
   clearMem,
   approveToken,
   toNat,
-  QSTokenType,
-  deapproveFA2,
 } from "@/core";
 
 @Component({
@@ -608,14 +606,6 @@ export default class SwapOrSend extends Vue {
               .toTransferParams()
           );
 
-        deapproveFA2(
-          batch,
-          inTk,
-          tokenContract,
-          me,
-          inTk.exchange,
-        );
-
         const operation = await batch.send();
         await operation.confirmation();
       } else if (inTk.type === "token" && outTk.type === "token") {
@@ -719,14 +709,6 @@ export default class SwapOrSend extends Vue {
               .use("tezToTokenPayment", toNat(minOut, outTk), recipient)
               .toTransferParams({ amount: tezAmount.toFixed() as any })
           );
-
-        deapproveFA2(
-          batch,
-          inTk,
-          inTokenContract,
-          me,
-          inTk.exchange,
-        );
 
         const operation = await batch.send();
         await operation.confirmation();

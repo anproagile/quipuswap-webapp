@@ -160,7 +160,6 @@ import {
   getNetwork,
   approveToken,
   deapproveFA2,
-  isUnsafeAllowanceChangeError,
 } from "@/core";
 import NavTabs from "@/components/NavTabs.vue";
 import NavGovernance from "@/components/NavGovernance.vue";
@@ -336,7 +335,7 @@ export default class VoteBaker extends Vue {
           },
         ]);
       } catch (err) {
-        if (isUnsafeAllowanceChangeError(err)) {
+        if (err?.message === "UnsafeAllowanceChange") {
           withAllowanceReset = true;
         } else {
           console.error(err);

@@ -73,12 +73,13 @@ export const TOKEN_WHITELIST: WhitelistedToken[] = [
   {
     network: Network.Main,
     type: "fa1.2",
-    contractAddress: "KT1AEfeckNbdEYwaMKkytBwPJPycz7jdSGea",
+    contractAddress: "KT1EctCuorV2NfVb1XTQgvzJ88MQtWP8cMMv",
     metadata: {
-      decimals: 18,
+      decimals: 0,
       symbol: "STKR",
-      name: "Staker Governance Token",
-      thumbnailUri: "https://github.com/StakerDAO/resources/raw/main/stkr.png",
+      name: "Staker",
+      thumbnailUri:
+        "https://miro.medium.com/fit/c/160/160/1*LzmHCYryGmuN9ZR7JX951w.png",
     },
   },
   {
@@ -102,12 +103,6 @@ export const TOKEN_WHITELIST: WhitelistedToken[] = [
       name: "ETHtez",
       thumbnailUri: "https://ethtz.io/ETHtz_purple.png",
     },
-  },
-  {
-    network: Network.Main,
-    type: "fa2",
-    contractAddress: "KT1AFA2mwNUMNd4SsujE1YYp29vd8BZejyKW",
-    fa2TokenId: 0,
   },
 
   /**

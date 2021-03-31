@@ -162,7 +162,6 @@ import {
   toNat,
   QSTokenType,
   deapproveFA2,
-  isUnsafeAllowanceChangeError,
 } from "@/core";
 
 @Component({
@@ -567,7 +566,7 @@ export default class SwapOrSend extends Vue {
             },
           ]);
         } catch (err) {
-          if (isUnsafeAllowanceChangeError(err)) {
+          if (err?.message === "UnsafeAllowanceChange") {
             withAllowanceReset = true;
           } else {
             console.error(err);
@@ -672,7 +671,7 @@ export default class SwapOrSend extends Vue {
             },
           ]);
         } catch (err) {
-          if (isUnsafeAllowanceChangeError(err)) {
+          if (err?.message === "UnsafeAllowanceChange") {
             withAllowanceReset = true;
           } else {
             console.error(err);

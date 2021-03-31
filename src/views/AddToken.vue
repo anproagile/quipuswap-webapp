@@ -126,7 +126,6 @@ import Loader from "@/components/Loader.vue";
 import Form, { FormField, FormIcon, FormInfo } from "@/components/Form";
 import SubmitBtn from "@/components/SubmitBtn.vue";
 
-import { OpKind } from "@taquito/taquito";
 import BigNumber from "bignumber.js";
 import { loadTokens, getAccount, useWallet } from "@/store";
 import {
@@ -147,7 +146,6 @@ import {
   clearMem,
   approveToken,
   QSTokenType,
-  deapproveFA2,
 } from "@/core";
 import { XTZ_TOKEN } from "@/core/defaults";
 
@@ -363,54 +361,8 @@ export default class AddToken extends Vue {
         .integerValue(BigNumber.ROUND_DOWN)
         .toFixed();
 
-      const facStorage: any = await facContract.storage();
-      const dexAddress = await facStorage.token_to_exchange.get(
-        this.tokenType === "FA1.2" ? this.tokenAddress : [this.tokenAddress, tokenId]
-      );
-
-      let withAllowanceReset = false;
-      try {
-        await tezos.estimate.batch([
-          {
-            kind: OpKind.TRANSACTION,
-            ...approveToken(
-              {
-                tokenType: this.tokenType,
-                fa2TokenId: tokenId
-              },
-              tokenContract,
-              me,
-              dexAddress || factoryContractAddres,
-              tokenAmountNat
-            ).toTransferParams()
-          },
-        ]);
-      } catch (err) {
-        if (err?.message === "UnsafeAllowanceChange") {
-          withAllowanceReset = true;
-        } else {
-          console.error(err);
-        }
-      }
-
-      let batch = tezos.wallet.batch([]);
-
-      if (withAllowanceReset) {
-        batch = batch.withTransfer(
-          approveToken(
-            {
-              tokenType: this.tokenType,
-              fa2TokenId: tokenId
-            },
-            tokenContract,
-            me,
-            dexAddress || factoryContractAddres,
-            0
-          ).toTransferParams()
-        );
-      }
-
-      batch = batch
+      const batch = tezos.wallet
+        .batch([])
         .withTransfer(
           approveToken(
             {
@@ -419,22 +371,11 @@ export default class AddToken extends Vue {
             },
             tokenContract,
             me,
-            dexAddress || factoryContractAddres,
+            factoryContractAddres,
             tokenAmountNat
           ).toTransferParams()
-        );
-
-      batch = dexAddress
-        ? batch
-        .withTransfer(
-          (await tezos.wallet.at(dexAddress)).methods
-            .initializeExchange(
-              tokenAmountNat
-            )
-            .toTransferParams({ amount: tezAmount.toFixed() as any })
         )
-        : batch
-          .withTransfer(
+        .withTransfer(
           facContract.methods
             .launchExchange(
               ...(this.tokenType === "FA1.2"
@@ -444,17 +385,6 @@ export default class AddToken extends Vue {
             )
             .toTransferParams({ amount: tezAmount.toFixed() as any })
         );
-
-      deapproveFA2(
-        batch,
-        {
-          tokenType: this.tokenType,
-          fa2TokenId: tokenId
-        },
-        tokenContract,
-        me,
-        dexAddress || factoryContractAddres,
-      );
 
       const operation = await batch.send();
       await operation.confirmation();

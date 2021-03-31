@@ -128,7 +128,6 @@ import {
   isAddressValid,
   clearMem,
   approveToken,
-  deapproveFA2,
 } from "@/core";
 import NavTabs from "@/components/NavTabs.vue";
 import NavGovernance from "@/components/NavGovernance.vue";
@@ -138,7 +137,6 @@ import GovernancePairSelect from "@/components/GovernancePairSelect.vue";
 import BakerFormField from "@/components/Form/BakerFormField.vue";
 import Loader from "@/components/Loader.vue";
 import BigNumber from "bignumber.js";
-import { OpKind } from "@taquito/taquito";
 
 @Component({
   components: {
@@ -232,7 +230,7 @@ export default class Veto extends Vue {
         ? myShares.unfrozen.toFixed()
         : null;
       if (this.availableSharesToVeto !== null && voter) {
-        this.availableSharesToVeto = new BigNumber(this.availableSharesToVeto).plus(voter.veto).toFixed();
+        this.availableSharesToVeto += voter.veto.toFixed();
       }
       this.availableSharesToExit = voter ? voter.veto.toFixed() : null;
 
@@ -285,49 +283,9 @@ export default class Veto extends Vue {
       const me = await tezos.wallet.pkh();
       const contract = await tezos.wallet.at(this.selectedToken!.exchange);
 
-      let withAllowanceReset = false;
-      try {
-        await tezos.estimate.batch([
-          {
-            kind: OpKind.TRANSACTION,
-            ...approveToken(
-              {
-                tokenType: this.selectedToken!.tokenType,
-                fa2TokenId: 0,
-              },
-              contract,
-              me,
-              contract.address,
-              sharesToVeto
-            ).toTransferParams()
-          },
-        ]);
-      } catch (err) {
-        if (err?.message === "UnsafeAllowanceChange") {
-          withAllowanceReset = true;
-        } else {
-          console.error(err);
-        }
-      }
-
-      let batch = tezos.wallet.batch([]);
-
-      if (withAllowanceReset) {
-        batch = batch.withTransfer(
-          approveToken(
-            {
-              tokenType: this.selectedToken!.tokenType,
-              fa2TokenId: 0,
-            },
-            contract,
-            me,
-            contract.address,
-            0
-          ).toTransferParams()
-        );
-      }
-
-      batch = batch.withTransfer(
+      const batch = tezos.wallet
+        .batch([])
+        .withTransfer(
           approveToken(
             {
               tokenType: this.selectedToken!.tokenType,
@@ -344,17 +302,6 @@ export default class Veto extends Vue {
             .use("veto", sharesToVeto, this.voter)
             .toTransferParams()
         );
-
-      deapproveFA2(
-        batch,
-        {
-          tokenType: this.selectedToken!.tokenType,
-          fa2TokenId: 0,
-        },
-        contract,
-        me,
-        contract.address,
-      );
 
       const operation = await batch.send();
       await operation.confirmation();

@@ -4,4 +4,3 @@ export * from "./helpers";
 export * from "./estimates";
 export * from "./state";
 export * from "./assets";
-export * from "./contract";

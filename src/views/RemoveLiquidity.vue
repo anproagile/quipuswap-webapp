@@ -110,7 +110,7 @@ import Form, { FormField, FormIcon, FormInfo } from "@/components/Form";
 import SubmitBtn from "@/components/SubmitBtn.vue";
 
 import BigNumber from "bignumber.js";
-import store, { getAccount, useWallet } from "@/store";
+import { getAccount, useWallet } from "@/store";
 import {
   QSAsset,
   isAddressValid,
@@ -154,6 +154,7 @@ type PoolMeta = {
   },
 })
 export default class RemoveLiquidity extends Vue {
+  selectedToken: QSAsset | null = null;
   sharesToRemove = "";
   myShares: string | null = null;
   tokenLoading = false;
@@ -164,13 +165,6 @@ export default class RemoveLiquidity extends Vue {
 
   processing = false;
   remLiqStatus = this.defaultRemLiqStatus;
-
-  get selectedToken(): QSAsset | null {
-    const tokenExchange = this.$route.params.token;
-    return (
-      store.state.tokens.find((t: any) => t.exchange === tokenExchange) || null
-    );
-  }
 
   get defaultRemLiqStatus() {
     return "Remove Liquidity";
@@ -230,7 +224,10 @@ export default class RemoveLiquidity extends Vue {
         if (!shares) {
           this.myShares = "0";
         } else {
-          this.myShares = shares.unfrozen.toFixed();
+          this.myShares = (shares.unfrozen.isEqualTo(dexStorage.totalSupply)
+            ? shares.unfrozen.minus(1)
+            : shares.unfrozen
+          ).toFixed();
         }
       }
     } catch (err) {
@@ -269,14 +266,14 @@ export default class RemoveLiquidity extends Vue {
         tokenFull: `${fromNat(dexStorage.tokenPool, this.selectedToken)} ${
           this.selectedToken.name
         }`,
-        myShare: myShare && !myShare.isNaN() ? `${myShare.times(100).toFormat(2)}%` : "-",
-        myTokens: myTokens && !myTokens.isNaN() ? `${myTokens} ${this.selectedToken.name}` : "-",
+        myShare: myShare ? `${myShare.times(100).toFormat(2)}%` : "-",
+        myTokens: myTokens ? `${myTokens} ${this.selectedToken.name}` : "-",
       };
     }
   }
 
   async handleTokenSelect(token: QSAsset) {
-    this.$router.replace(`/invest/remove-liquidity/${token.exchange}`);
+    this.selectedToken = token;
     this.dexAddress = token.exchange;
 
     if (!this.sharesToRemove) {
@@ -327,7 +324,10 @@ export default class RemoveLiquidity extends Vue {
       const mySharesPure = await getDexShares(this.account.pkh, selTk.exchange);
       let myShares: string | undefined;
       if (mySharesPure) {
-        myShares = mySharesPure.unfrozen.toFixed();
+        myShares = (mySharesPure.unfrozen.isEqualTo(dexStorage.totalSupply)
+          ? mySharesPure.unfrozen.minus(1)
+          : mySharesPure.unfrozen
+        ).toFixed();
       }
 
       if (!myShares || shares.isGreaterThan(myShares)) {

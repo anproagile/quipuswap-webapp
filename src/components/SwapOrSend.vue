@@ -31,7 +31,6 @@
         placeholder="0.0"
         label="Output"
         v-model="outputAmount"
-        :subLabelName="outputBalance ? `Balance: ${outputBalance}` : undefined"
         :isLoading="outputLoading"
         @input="(e) => handleOutputAmountChange(e.target.value)"
         @selectToken="handleOutputSelect"
@@ -161,23 +160,22 @@ import {
   isAddressValid,
   toValidAmount,
   getBalance,
+  getDexStorage,
+  getContract,
   estimateTezToToken,
   estimateTezToTokenInverse,
   estimateTokenToTez,
   estimateTokenToTezInverse,
   tzToMutez,
+  mutezToTz,
   clearMem,
   approveToken,
   toNat,
+  QSTokenType,
   deapproveFA2,
   isUnsafeAllowanceChangeError,
   toAssetSlug,
   isTokenWhitelisted,
-  getDexStorage,
-  findTezDex,
-  getT2TPairId,
-  QST2TPair,
-  estimateToken2Token,
 } from "@/core";
 import { notifyConfirm } from "../toast";
 
@@ -200,7 +198,6 @@ export default class SwapOrSend extends Vue {
   inputLoading = false;
 
   outputAmount = "";
-  outputBalance: string | null = null;
   outputLoading = false;
 
   recipientAddress: string = "";
@@ -212,8 +209,6 @@ export default class SwapOrSend extends Vue {
   fee: string | null = null;
   inputDexAddress: string | null = null;
   outputDexAddress: string | null = null;
-  t2tPair: QST2TPair | null = null;
-  t2tPairLoading = false;
 
   swapping = false;
   swapStatus = this.defaultSwapStatus;
@@ -325,72 +320,17 @@ export default class SwapOrSend extends Vue {
 
   @Watch("inputToken")
   onInputTokenChange() {
-    this.loadInputTezDex();
-    this.loadT2TDex();
     this.loadInputBalance();
-  }
-
-  @Watch("outputToken")
-  onOutputTokenChange() {
-    this.loadOutputTezDex();
-    this.loadT2TDex();
-    this.loadOutputBalance();
   }
 
   @Watch("account")
   onAccountChange() {
     this.loadInputBalance();
-    this.loadOutputBalance();
   }
 
   @Watch("tokens")
   onTokensChange() {
     this.loadFee();
-  }
-
-  @Watch("t2tPair")
-  onT2TPairIdChange() {
-    console.info(this.t2tPair);
-  }
-
-  async loadInputTezDex() {
-    this.inputDexAddress = null;
-
-    if (this.inputToken && this.inputToken.type === "token") {
-      this.inputLoading = true;
-      const dex = await findTezDex(this.inputToken);
-      if (dex) this.inputDexAddress = dex.address;
-      this.inputLoading = false;
-    }
-
-    this.calcOutputAmount();
-  }
-
-  async loadOutputTezDex() {
-    this.outputDexAddress = null;
-    if (this.outputToken && this.outputToken.type === "token") {
-      this.outputLoading = true;
-      const dex = await findTezDex(this.outputToken);
-      if (dex) this.outputDexAddress = dex.address;
-      this.outputLoading = false;
-    }
-
-    this.calcOutputAmount();
-  }
-
-  async loadT2TDex() {
-    if (this.t2tPairLoading) return;
-    this.t2tPairLoading = true;
-
-    this.t2tPair = null;
-    if (this.inputToken && this.outputToken) {
-      const t2tPairIdBN = await getT2TPairId(this.inputToken, this.outputToken);
-      if (t2tPairIdBN) {
-        this.t2tPair = t2tPairIdBN;
-      }
-    }
-
-    this.t2tPairLoading = false;
   }
 
   async loadInputBalance() {
@@ -407,25 +347,12 @@ export default class SwapOrSend extends Vue {
     }
   }
 
-  async loadOutputBalance() {
-    this.outputBalance = null;
-    try {
-      if (this.outputToken && this.account.pkh) {
-        const balance = await getBalance(this.account.pkh, this.outputToken);
-        this.outputBalance = balance.toFixed();
-      }
-    } catch (err) {
-      if (process.env.NODE_ENV === "development") {
-        console.error(err);
-      }
-    }
-  }
-
   async loadFee() {
     this.fee = null;
     try {
       const token = store.state.tokens[0];
       if (token) {
+        const dexStorage = await getDexStorage(token.exchange);
         const feeBn = new BigNumber(1).div(FEE_RATE).times(100);
         this.fee = `${+feeBn.toFixed(2)}%`;
       }
@@ -436,16 +363,26 @@ export default class SwapOrSend extends Vue {
     }
   }
 
-  handleInputSelect(token: QSAsset) {
+  async handleInputSelect(token: QSAsset) {
     this.inputToken = token;
 
     if (this.outputToken && toAssetSlug(token) === toAssetSlug(this.outputToken)) {
       this.outputToken = null;
       this.outputAmount = "";
     }
+
+    this.inputDexAddress = null;
+    if (token.type === "token") {
+      this.inputLoading = true;
+      await getDexStorage(token.exchange);
+      this.inputDexAddress = token.exchange;
+      this.inputLoading = false;
+    }
+
+    this.calcOutputAmount();
   }
 
-  handleOutputSelect(token: QSAsset) {
+  async handleOutputSelect(token: QSAsset) {
     this.outputToken = token;
 
     if (this.inputToken) {
@@ -455,6 +392,15 @@ export default class SwapOrSend extends Vue {
         this.inputAmount = "1";
       }
     }
+
+    this.outputDexAddress = null;
+    if (token.type === "token") {
+      this.outputLoading = true;
+      await getDexStorage(token.exchange);
+      this.outputDexAddress = token.exchange;
+      this.outputLoading = false;
+    }
+    this.calcOutputAmount();
   }
 
   setActiveSlippagePercentage(percentage: number) {
@@ -512,44 +458,31 @@ export default class SwapOrSend extends Vue {
     let amount: BigNumber | undefined;
     switch (true) {
       case inType === "xtz" && outType === "token":
-        if (this.outputDexAddress) {
-          amount = estimateTezToToken(
-            this.inputAmount,
-            await getDexStorage(this.outputDexAddress),
-            this.outputToken
-          );
-        }
+        amount = estimateTezToToken(
+          this.inputAmount,
+          await getDexStorage(this.outputToken.exchange),
+          this.outputToken
+        );
         break;
 
       case inType === "token" && outType === "xtz":
-        if (this.inputDexAddress) {
-          amount = estimateTokenToTez(
-            this.inputAmount,
-            await getDexStorage(this.inputDexAddress),
-            this.inputToken
-          );
-        }
+        amount = estimateTokenToTez(
+          this.inputAmount,
+          await getDexStorage(this.inputToken.exchange),
+          this.inputToken
+        );
         break;
 
       case inType === "token" && outType === "token":
-        if (this.t2tPair) {
-          amount = estimateToken2Token(
-            await this.t2tPair.storage.pairs.get(this.t2tPair.storage.id),
-            this.inputToken,
-            this.outputToken,
+        amount = estimateTezToToken(
+          await estimateTokenToTez(
             this.inputAmount,
-          );
-        } else if (this.inputDexAddress && this.outputDexAddress) {
-          amount = estimateTezToToken(
-            estimateTokenToTez(
-              this.inputAmount,
-              await getDexStorage(this.inputDexAddress),
-              this.inputToken
-            ),
-            await getDexStorage(this.outputDexAddress),
-            this.outputToken
-          );
-        }
+            await getDexStorage(this.inputToken.exchange),
+            this.inputToken
+          ),
+          await getDexStorage(this.outputToken.exchange),
+          this.outputToken
+        );
         break;
       default:
         break;
@@ -567,39 +500,32 @@ export default class SwapOrSend extends Vue {
     let amount: BigNumber | undefined;
     switch (true) {
       case inType === "xtz" && outType === "token":
-        if (this.outputDexAddress) {
-          amount = estimateTezToTokenInverse(
-            this.outputAmount,
-            await getDexStorage(this.outputDexAddress),
-            this.outputToken
-          );
-        }
+        amount = estimateTezToTokenInverse(
+          this.outputAmount,
+          await getDexStorage(this.outputToken.exchange),
+          this.outputToken
+        );
         break;
 
       case inType === "token" && outType === "xtz":
-        if (this.inputDexAddress) {
-          amount = estimateTokenToTezInverse(
-            this.outputAmount,
-            await getDexStorage(this.inputDexAddress),
-            this.inputToken
-          );
-        }
+        amount = estimateTokenToTezInverse(
+          this.outputAmount,
+          await getDexStorage(this.inputToken.exchange),
+          this.inputToken
+        );
         break;
 
       case inType === "token" && outType === "token":
-        if (this.inputDexAddress && this.outputDexAddress) {
-          amount = estimateTokenToTezInverse(
-            estimateTezToTokenInverse(
-              this.outputAmount,
-              await getDexStorage(this.outputDexAddress),
-              this.outputToken
-            ),
-            await getDexStorage(this.inputDexAddress),
-            this.inputToken
-          );
-        }
+        amount = estimateTokenToTezInverse(
+          await estimateTezToTokenInverse(
+            this.outputAmount,
+            await getDexStorage(this.outputToken.exchange),
+            this.outputToken
+          ),
+          await getDexStorage(this.inputToken.exchange),
+          this.inputToken
+        );
         break;
-
       default:
         break;
     }
@@ -628,13 +554,9 @@ export default class SwapOrSend extends Vue {
     this.inputToken = newInputToken ?? null;
     this.outputToken = newOutputToken ?? null;
 
-    // const inputDexAddress = this.inputDexAddress;
-    // this.inputDexAddress = this.outputDexAddress;
-    // this.outputDexAddress = inputDexAddress;
-
     if (newInputToken && newOutputToken && newInputAmount) {
       this.inputAmount = newInputAmount;
-     // this.calcOutputAmount();
+      this.calcOutputAmount();
     }
   }
 
@@ -662,16 +584,16 @@ export default class SwapOrSend extends Vue {
       }
 
       let operation: WalletOperation;
-      if (inTk.type === "xtz" && outTk.type === "token" && this.outputDexAddress) {
-        const contract = await tezos.wallet.at(this.outputDexAddress);
+      if (inTk.type === "xtz" && outTk.type === "token") {
+        const contract = await tezos.wallet.at(outTk.exchange);
 
         operation = await contract.methods
           .use("tezToTokenPayment", toNat(minOut, outTk).toFixed(), recipient)
           .send({ amount: inpAmn as any });
-      } else if (inTk.type === "token" && outTk.type === "xtz" && this.inputDexAddress) {
+      } else if (inTk.type === "token" && outTk.type === "xtz") {
         const [tokenContract, dexContract] = await Promise.all([
           tezos.wallet.at(inTk.id),
-          tezos.wallet.at(this.inputDexAddress),
+          tezos.wallet.at(inTk.exchange),
         ]);
 
         const tokenAmountNat = toNat(inpAmn, inTk).toFixed();
@@ -685,7 +607,7 @@ export default class SwapOrSend extends Vue {
                 inTk,
                 tokenContract,
                 me,
-                this.inputDexAddress,
+                inTk.exchange,
                 tokenAmountNat
               ).toTransferParams(),
             },
@@ -717,7 +639,7 @@ export default class SwapOrSend extends Vue {
               inTk,
               tokenContract,
               me,
-              this.inputDexAddress,
+              inTk.exchange,
               0
             ).toTransferParams()
           );
@@ -729,7 +651,7 @@ export default class SwapOrSend extends Vue {
               inTk,
               tokenContract,
               me,
-              this.inputDexAddress,
+              inTk.exchange,
               tokenAmountNat
             ).toTransferParams()
           )
@@ -749,24 +671,24 @@ export default class SwapOrSend extends Vue {
           inTk,
           tokenContract,
           me,
-          this.inputDexAddress,
+          inTk.exchange,
         );
 
         operation = await batch.send();
-      } else if (inTk.type === "token" && outTk.type === "token" && this.inputDexAddress && this.outputDexAddress) {
+      } else if (inTk.type === "token" && outTk.type === "token") {
         const [
           inTokenContract,
           inDexContract,
           outDexContract,
         ] = await Promise.all([
           tezos.wallet.at(inTk.id),
-          tezos.wallet.at(this.inputDexAddress),
-          tezos.wallet.at(this.outputDexAddress),
+          tezos.wallet.at(inTk.exchange),
+          tezos.wallet.at(outTk.exchange),
         ]);
 
         const tezAmount = estimateTokenToTez(
           this.inputAmount,
-          await getDexStorage(this.inputDexAddress),
+          await getDexStorage(inTk.exchange),
           inTk
         );
 
@@ -781,7 +703,7 @@ export default class SwapOrSend extends Vue {
                 inTk,
                 inTokenContract,
                 me,
-                this.inputDexAddress,
+                inTk.exchange,
                 inpAmnNat
               ).toTransferParams(),
             },
@@ -821,7 +743,7 @@ export default class SwapOrSend extends Vue {
               inTk,
               inTokenContract,
               me,
-              this.inputDexAddress,
+              inTk.exchange,
               0
             ).toTransferParams()
           );
@@ -833,7 +755,7 @@ export default class SwapOrSend extends Vue {
               inTk,
               inTokenContract,
               me,
-              this.inputDexAddress,
+              inTk.exchange,
               inpAmnNat
             ).toTransferParams()
           )
@@ -860,7 +782,7 @@ export default class SwapOrSend extends Vue {
           inTk,
           inTokenContract,
           me,
-          this.inputDexAddress,
+          inTk.exchange,
         );
 
         operation = await batch.send();

@@ -50,7 +50,7 @@
         <template v-if="filteredTokens.length">
           <TokenItem
             v-for="token in filteredTokens"
-            :key="`${token.id}_${token.fa2TokenId}`"
+            :key="token.id"
             :token="token"
             :symbol="token.symbol"
             :name="token.name"

@@ -20,7 +20,7 @@
             >
               <span class="mr-1">Dex contract:</span>
               <span class="font-mono text-gray-400">{{
-                dexAddress || ""
+                selectedToken.exchange
               }}</span>
             </div>
           </template>
@@ -50,7 +50,7 @@
         <template v-if="filteredTokens.length">
           <TokenItem
             v-for="token in filteredTokens"
-            :key="`${token.id}_${token.fa2TokenId}`"
+            :key="token.id"
             :token="token"
             :symbol="token.symbol"
             :name="token.name"
@@ -68,7 +68,7 @@ import { Vue, Component, Prop, Ref, Watch } from "vue-property-decorator";
 import TokenItem from "@/components/Form/TokenItem.vue";
 import Loader from "@/components/Loader.vue";
 
-import { QSAsset, isAddressValid, toAssetSlug, findTezDex } from "@/core";
+import { QSAsset, isAddressValid } from "@/core";
 import store from "@/store";
 
 @Component({
@@ -83,18 +83,12 @@ export default class GovernancePairSelect extends Vue {
   searchValue: string = "";
   isSearchOpened: boolean = !Boolean((this as any).selectedToken);
   isLoading: boolean = false;
-  dexAddress: string | null = null;
-
-  created() {
-    this.loadDex();
-  }
 
   @Watch("selectedToken")
   onSelectedTokenChanged() {
     if (this.selectedToken) {
       this.isSearchOpened = false;
     }
-    this.loadDex();
   }
 
   get formattedSelectedTokenSymbol() {
@@ -123,21 +117,10 @@ export default class GovernancePairSelect extends Vue {
 
   selectToken(token: QSAsset) {
     this.searchValue = "";
-    if (!this.selectedToken || toAssetSlug(this.selectedToken) !== toAssetSlug(token)) {
+    if (!this.selectedToken || this.selectedToken.exchange !== token.exchange) {
       this.$emit("token-selected", token);
     } else {
       this.isSearchOpened = false;
-    }
-  }
-
-  async loadDex() {
-    this.dexAddress = null;
-
-    if (this.selectedToken) {
-      const dex = await findTezDex(this.selectedToken);
-      if (dex) {
-        this.dexAddress = dex.address;
-      }
     }
   }
 }

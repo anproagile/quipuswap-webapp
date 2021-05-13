@@ -162,8 +162,6 @@ import {
   isUnsafeAllowanceChangeError,
   sharesFromNat,
   sharesToNat,
-  toAssetSlug,
-  findTezDex,
 } from "@/core";
 import NavTabs from "@/components/NavTabs.vue";
 import NavGovernance from "@/components/NavGovernance.vue";
@@ -192,7 +190,6 @@ import { notifyConfirm } from "../toast";
 })
 export default class VoteBaker extends Vue {
   isLoading: boolean = false;
-  dexAddress: string | null = null;
 
   currentCandidate: string = "-";
   nextCandidate: string = "-";
@@ -220,15 +217,14 @@ export default class VoteBaker extends Vue {
   }
 
   get selectedToken(): QSAsset | null {
-    const tokenSlug = this.$route.params.token;
+    const tokenExchange = this.$route.params.token;
     return (
-      store.state.tokens.find((t) => toAssetSlug(t) === tokenSlug) || null
+      store.state.tokens.find((t: any) => t.exchange === tokenExchange) || null
     );
   }
 
   get valid() {
     return (
-      this.dexAddress &&
       isAddressValid(this.bakerAddress) &&
       isAddressValid(this.voter) &&
       +this.sharesToVote > 0
@@ -260,43 +256,36 @@ export default class VoteBaker extends Vue {
     if (!this.selectedToken) return;
 
     this.isLoading = true;
-
     try {
-      this.dexAddress = null;
-      const dex = await findTezDex(this.selectedToken);
-      if (dex) {
-        this.dexAddress = dex.address;
+      const storage = await getDexStorage(this.selectedToken.exchange);
 
-        const storage = await getDexStorage(dex.address);
+      this.currentCandidate = storage.currentCandidate || "-";
+      this.nextCandidate = storage.currentDelegated || "-";
+      this.totalShares = sharesFromNat(storage.totalSupply).toFixed();
+      this.totalVotes = sharesFromNat(storage.totalVotes).toFixed();
 
-        this.currentCandidate = storage.currentCandidate || "-";
-        this.nextCandidate = storage.currentDelegated || "-";
-        this.totalShares = sharesFromNat(storage.totalSupply).toFixed();
-        this.totalVotes = sharesFromNat(storage.totalVotes).toFixed();
+      const me = this.account.pkh || "";
 
-        const me = this.account.pkh || "";
+      if (me) {
+        const [myShares, voter] = await Promise.all([
+          getDexShares(me, this.selectedToken.exchange),
+          storage.voters.get(me),
+        ]);
 
-        if (me) {
-          const [myShares, voter] = await Promise.all([
-            getDexShares(me, dex.address),
-            storage.voters.get(me),
-          ]);
-
-          this.yourTotalShares = myShares ? sharesFromNat(myShares.total).toFixed() : null;
-          this.availableSharesToVote = myShares
-            ? sharesFromNat(myShares.unfrozen).toFixed()
-            : null;
-          if (this.availableSharesToVote !== null && voter) {
-            this.availableSharesToVote = new BigNumber(this.availableSharesToVote)
-              .plus(sharesFromNat(voter.vote))
-              .toFixed();
-          }
-          this.availableSharesToExit = voter && new BigNumber(voter.vote).isGreaterThan(0) ? sharesFromNat(voter.vote).toFixed() : null;
-          this.yourCandidate = voter ? voter.candidate : "-";
+        this.yourTotalShares = myShares ? sharesFromNat(myShares.total).toFixed() : null;
+        this.availableSharesToVote = myShares
+          ? sharesFromNat(myShares.unfrozen).toFixed()
+          : null;
+        if (this.availableSharesToVote !== null && voter) {
+          this.availableSharesToVote = new BigNumber(this.availableSharesToVote)
+            .plus(sharesFromNat(voter.vote))
+            .toFixed();
         }
-
-        this.voter = me;
+        this.availableSharesToExit = voter && new BigNumber(voter.vote).isGreaterThan(0) ? sharesFromNat(voter.vote).toFixed() : null;
+        this.yourCandidate = voter ? voter.candidate : "-";
       }
+
+      this.voter = me;
     } catch (err) {
       console.error(err);
     } finally {
@@ -305,7 +294,7 @@ export default class VoteBaker extends Vue {
   }
 
   selectToken(token: QSAsset) {
-    this.$router.replace(`/governance/vote-baker/${toAssetSlug(token)}`);
+    this.$router.replace(`/governance/vote-baker/${token.exchange}`);
   }
 
   selectBaker(baker: BBKnownBaker) {
@@ -327,11 +316,10 @@ export default class VoteBaker extends Vue {
     this.processing = true;
 
     try {
-      const dexAddress = this.dexAddress!;
       const sharesToVote = sharesToNat(this.sharesToVote).toFixed();
 
       const tezos = await useWallet();
-      const contract = await tezos.wallet.at(dexAddress);
+      const contract = await tezos.wallet.at(this.selectedToken!.exchange);
 
       const batch = tezos.wallet.batch([])
         .withTransfer(
@@ -368,9 +356,8 @@ export default class VoteBaker extends Vue {
     this.exiting = true;
 
     try {
-      const dexAddress = this.dexAddress!;
       const tezos = await useWallet();
-      const contract = await tezos.wallet.at(dexAddress);
+      const contract = await tezos.wallet.at(this.selectedToken!.exchange);
 
       const bakerStub =
         [this.nextCandidate, this.bakerAddress, this.voter].find(

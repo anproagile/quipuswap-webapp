@@ -124,8 +124,6 @@ import {
   deapproveFA2,
   isUnsafeAllowanceChangeError,
   isTokenWhitelisted,
-  toAssetSlug,
-  findTezDex,
 } from "@/core";
 import { XTZ_TOKEN } from "@/core/defaults";
 import { OpKind } from "@taquito/taquito";
@@ -137,6 +135,8 @@ type PoolMeta = {
   myShare: string;
   myTokens: string;
 };
+
+const TZ_PENNY = 0.000001;
 
 @Component({
   components: {
@@ -167,9 +167,9 @@ export default class AddLiquidity extends Vue {
   addLiqStatus = this.defaultAddLiqStatus;
 
   get selectedToken(): QSAsset | null {
-    const tokenSlug = this.$route.params.token;
+    const tokenExchange = this.$route.params.token;
     return (
-      store.state.tokens.find((t) => toAssetSlug(t) === tokenSlug) || null
+      store.state.tokens.find((t: any) => t.exchange === tokenExchange) || null
     );
   }
 
@@ -185,7 +185,6 @@ export default class AddLiquidity extends Vue {
     return (
       this.tezToken &&
       this.selectedToken &&
-      this.dexAddress &&
       [this.tezAmount, this.tokenAmount].every((a) => a && +a > 0)
     );
   }
@@ -223,11 +222,6 @@ export default class AddLiquidity extends Vue {
   @Watch("selectedToken")
   onSelectedTokenChange() {
     this.loadTokenBalance();
-    this.loadDex();
-  }
-
-  @Watch("dexAddress")
-  onDexAddressChange() {
     this.loadPoolMetadata();
   }
 
@@ -266,30 +260,15 @@ export default class AddLiquidity extends Vue {
     }
   }
 
-  async loadDex() {
-    this.dexAddress = null;
-
-    if (this.selectedToken) {
-      this.tokenLoading = true;
-      const dex = await findTezDex(this.selectedToken);
-      if (dex) {
-        this.dexAddress = dex.address;
-      }
-      this.tokenLoading = false;
-
-      this.calcTokenAmount();
-    }
-  }
-
   async loadPoolMetadata() {
     this.poolMeta = null;
 
-    if (this.selectedToken && this.dexAddress && this.account.pkh) {
+    if (this.selectedToken && this.account.pkh) {
       const myShares = await getDexShares(
         this.account.pkh,
-        this.dexAddress
+        this.selectedToken.exchange
       );
-      const dexStorage = await getDexStorage(this.dexAddress);
+      const dexStorage = await getDexStorage(this.selectedToken.exchange);
 
       const myShare =
         myShares && new BigNumber(myShares.total).div(dexStorage.totalSupply);
@@ -314,11 +293,18 @@ export default class AddLiquidity extends Vue {
   }
 
   async handleTokenSelect(token: QSAsset) {
-    this.$router.replace(`/invest/add-liquidity/${toAssetSlug(token)}`);
+    this.$router.replace(`/invest/add-liquidity/${token.exchange}`);
 
     if (!this.tezAmount) {
       this.tezAmount = "1";
     }
+
+    this.tokenLoading = true;
+    await getDexStorage(token.exchange);
+    this.dexAddress = token.exchange;
+    this.tokenLoading = false;
+
+    this.calcTokenAmount();
   }
 
   handleTezAmountChange(amount: string) {
@@ -342,9 +328,9 @@ export default class AddLiquidity extends Vue {
   }
 
   async calcTokenAmount() {
-    if (!this.selectedToken || !this.dexAddress) return;
+    if (!this.selectedToken) return;
 
-    const dexStorage = await getDexStorage(this.dexAddress);
+    const dexStorage = await getDexStorage(this.selectedToken.exchange);
     const shares = estimateShares(this.tezAmount, dexStorage);
     const amount = estimateInTokens(shares, dexStorage, this.selectedToken);
 
@@ -352,9 +338,9 @@ export default class AddLiquidity extends Vue {
   }
 
   async calcTezAmount() {
-    if (!this.selectedToken || !this.dexAddress) return;
+    if (!this.selectedToken) return;
 
-    const dexStorage = await getDexStorage(this.dexAddress);
+    const dexStorage = await getDexStorage(this.selectedToken.exchange);
     const shares = estimateSharesInverse(
       this.tokenAmount,
       dexStorage,
@@ -374,12 +360,11 @@ export default class AddLiquidity extends Vue {
 
       const tezTk = this.tezToken!;
       const selTk = this.selectedToken!;
-      const dexAddress = this.dexAddress!;
 
       const initialTezAmount = new BigNumber(this.tezAmount);
       const initialTokenAmount = new BigNumber(this.tokenAmount);
 
-      const dexStorage = await getDexStorage(dexAddress);
+      const dexStorage = await getDexStorage(selTk.exchange);
 
       const tezShares = estimateShares(initialTezAmount, dexStorage);
       const tokensShares = estimateSharesInverse(
@@ -418,7 +403,7 @@ export default class AddLiquidity extends Vue {
 
       const [tokenContract, dexContract] = await Promise.all([
         tezos.wallet.at(selTk.id),
-        tezos.wallet.at(dexAddress),
+        tezos.wallet.at(selTk.exchange),
       ]);
 
       const tokenAmountNat = toNat(tokenAmount, selTk).toFixed();
@@ -432,7 +417,7 @@ export default class AddLiquidity extends Vue {
               selTk,
               tokenContract,
               me,
-              dexAddress,
+              selTk.exchange,
               tokenAmountNat
             ).toTransferParams(),
           },
@@ -459,7 +444,7 @@ export default class AddLiquidity extends Vue {
             selTk,
             tokenContract,
             me,
-            dexAddress,
+            selTk.exchange,
             0
           ).toTransferParams()
         );
@@ -471,7 +456,7 @@ export default class AddLiquidity extends Vue {
             selTk,
             tokenContract,
             me,
-            dexAddress,
+            selTk.exchange,
             tokenAmountNat
           ).toTransferParams()
         )
@@ -490,7 +475,7 @@ export default class AddLiquidity extends Vue {
         selTk,
         tokenContract,
         me,
-        dexAddress,
+        selTk.exchange,
       );
 
       const operation = await batch.send();

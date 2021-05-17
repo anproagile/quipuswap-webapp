@@ -34,6 +34,7 @@ export const LOGO_URL = process.env.VUE_APP_LOGO_URL;
 
 export const FLORENCENET_NETWORK: QSNetwork = {
   id: "florencenet",
+  connectType: "default",
   name: "Florence Testnet",
   type: "test",
   rpcBaseURL: "https://florencenet.smartpy.io",
@@ -46,6 +47,7 @@ export const FLORENCENET_NETWORK: QSNetwork = {
 
 export const EDONET_NETWORK: QSNetwork = {
   id: "edo2net",
+  connectType: "default",
   name: "Edonet Testnet",
   type: "test",
   rpcBaseURL: "https://edonet.smartpy.io/",
@@ -58,9 +60,10 @@ export const EDONET_NETWORK: QSNetwork = {
 
 export const MAINNET_NETWORK: QSNetwork = {
   id: "mainnet",
+  connectType: "custom",
   name: "Tezos Mainnet",
   type: "main",
-  rpcBaseURL: "https://rpc.tzbeta.net/",
+  rpcBaseURL: "https://mainnet.madpoint.xyz/",
   fa1_2FactoryContract: FA1_2_FACTORY_CONTRACT_MAINNET,
   fa2FactoryContract: FA2_FACTORY_CONTRACT_MAINNET,
   description: "Tezos mainnet",
@@ -73,7 +76,7 @@ export const ALL_NETWORKS = [
   EDONET_NETWORK,
   FLORENCENET_NETWORK,
 ];
-export const DEFAULT_NETWORK = MAINNET_NETWORK;
+export const DEFAULT_NETWORK = FLORENCENET_NETWORK;
 
 export const XTZ_TOKEN: QSAsset = {
   type: "xtz",

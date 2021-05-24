@@ -259,13 +259,13 @@ async function useWalletBeacon(forcePermission: boolean) {
     await beaconWallet.requestPermissions({
       // network: { type: toBeaconNetworkType(net.id) },
       network:
-        net.connectType === "custom" && net.type === "test"
-          ? {
+        net.connectType === "default"
+          ? { type: toBeaconNetworkType(net.id) }
+          : {
               type: NetworkType.CUSTOM,
               name: net.name,
               rpcUrl: net.rpcBaseURL,
-            }
-          : { type: toBeaconNetworkType(net.id) },
+            },
     });
   }
 

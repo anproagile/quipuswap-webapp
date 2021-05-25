@@ -262,15 +262,20 @@ export const TOKEN_WHITELIST: WhitelistedToken[] = [
   {
     network: Network.Florence,
     type: "fa2",
-    contractAddress: "KT1VCczKAoRQJKco7NiSaB93PMkYCbL2z1K7",
+    contractAddress: "KT1DaKxkR1LdnXW1tr7yozdwEAiSQDpCLUBj",
     fa2TokenId: 0,
   },
   {
     network: Network.Florence,
-    type: "fa2",
-    contractAddress: "KT1CdFLoqESYe3qBCgM7LZUVmqYZFEabzwyS",
-    fa2TokenId: 0,
+    type: "fa1.2",
+    contractAddress: "KT1P3RGEAa78XLTs3Hkpd1VWtryQRLDjiXqF",
   },
+  {
+    network: Network.Florence,
+    type: "fa1.2",
+    contractAddress: "KT198WVepFnjQtx9HUhuKc2x8gUt9z2fvyv6",
+  },
+  // Old
   {
     network: Network.Florence,
     type: "fa1.2",
@@ -281,54 +286,16 @@ export const TOKEN_WHITELIST: WhitelistedToken[] = [
     type: "fa1.2",
     contractAddress: "KT1CMbwrQodEYFpdJmk8pzN8SzieupG6ZrZE",
   },
-  // Token2Token
   {
     network: Network.Florence,
     type: "fa2",
-    contractAddress: "KT1L7udNhU9mD85sSrME6mHmoqRGu3JtkQVJ",
+    contractAddress: "KT1VCczKAoRQJKco7NiSaB93PMkYCbL2z1K7",
     fa2TokenId: 0,
   },
   {
     network: Network.Florence,
     type: "fa2",
-    contractAddress: "KT1Pdj5m49kFsX6pQqSc1Ze1nNVrqkFH1Qmc",
+    contractAddress: "KT1CdFLoqESYe3qBCgM7LZUVmqYZFEabzwyS",
     fa2TokenId: 0,
-  },
-  {
-    network: Network.Florence,
-    type: "fa1.2",
-    contractAddress: "KT1JoqpEcpiYkv5bt3b4SoZLTWZ2mhKWtC5h",
-  },
-  {
-    network: Network.Florence,
-    type: "fa1.2",
-    contractAddress: "KT1Xgw9dCKbsHeRXdoQ8YwjDHzyLbwddtRVM",
-  },
-
-  /**
-   * Edonet
-   */
-
-  {
-    network: Network.Edo2net,
-    type: "fa2",
-    contractAddress: "KT1RncEZB9bgYJCvqZKQCZFWhBpmfTDdcaeN",
-    fa2TokenId: 0,
-  },
-  {
-    network: Network.Edo2net,
-    type: "fa2",
-    contractAddress: "KT1KLj7ctxde78ksTkz9VBvu6UaowTE8UCiX",
-    fa2TokenId: 0,
-  },
-  {
-    network: Network.Edo2net,
-    type: "fa1.2",
-    contractAddress: "KT1WXUmY2kxVZwAJe3mrXCMmDZFTCYvpvLzz",
-  },
-  {
-    network: Network.Edo2net,
-    type: "fa1.2",
-    contractAddress: "KT1QdiZFqQhnZs4B2inMekSrqCrEVtbPfuVV",
   },
 ];

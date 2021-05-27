@@ -24,7 +24,6 @@ import {
   LP_TOKEN_DECIMALS,
 } from "./defaults";
 import { getTokenMetadata } from "./assets";
-import { OldWhitelisted, OLD_WHITELIST } from "@/old-whitelist";
 
 export const michelEncoder = new MichelCodecPacker();
 export const michelParser = new Parser();
@@ -204,43 +203,22 @@ export const findTezDex = mem(findTezDexPure);
 export async function findTezDexPure(token: QSAsset) {
   if (token.type === "xtz") return null;
 
-  const tokenSlug = toAssetSlug(token);
-
   try {
-    const {
-      id: netId,
-      fa1_2FactoryContract,
-      fa2FactoryContract,
-      fa1_2OldFactoryContract,
-      fa2OldFactoryContract,
-    } = getNetwork();
+    const { fa1_2FactoryContract, fa2FactoryContract } = getNetwork();
 
-    const oldWhitelist = OLD_WHITELIST[netId] ?? [];
     let exchange;
 
     if (token.tokenType === QSTokenType.FA2) {
-      const factory =
-        fa2OldFactoryContract &&
-        oldWhitelist.some(w => toOldWhitelistedSlug(w) === tokenSlug)
-          ? fa2OldFactoryContract
-          : fa2FactoryContract;
-
-      if (factory) {
-        const facStorage = await getFactoryStorage(factory);
+      if (fa2FactoryContract) {
+        const facStorage = await getFactoryStorage(fa2FactoryContract);
         exchange = await facStorage.token_to_exchange.get([
           token.id,
           token.fa2TokenId,
         ]);
       }
     } else {
-      const factory =
-        fa1_2OldFactoryContract &&
-        oldWhitelist.some(w => toOldWhitelistedSlug(w) === tokenSlug)
-          ? fa1_2OldFactoryContract
-          : fa1_2FactoryContract;
-
-      if (factory) {
-        const facStorage = await getFactoryStorage(factory);
+      if (fa1_2FactoryContract) {
+        const facStorage = await getFactoryStorage(fa1_2FactoryContract);
         exchange = await facStorage.token_to_exchange.get(token.id);
       }
     }
@@ -295,8 +273,4 @@ export function setNetwork(net: QSNetwork) {
   localStorage.removeItem("accpkh");
   localStorage.removeItem("last-used-connect");
   location.reload();
-}
-
-function toOldWhitelistedSlug(w: OldWhitelisted) {
-  return w.tokenId !== undefined ? `${w.contract}_${w.tokenId}` : w.contract;
 }

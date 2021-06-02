@@ -137,7 +137,6 @@ import {
   isTokenWhitelisted,
   toAssetSlug,
   findTezDex,
-  confirmOperation,
 } from "@/core";
 import { XTZ_TOKEN } from "@/core/defaults";
 import { OpKind } from "@taquito/taquito";
@@ -514,8 +513,8 @@ export default class AddLiquidity extends Vue {
       const operation = await batch.send();
 
       notifyConfirm(
-        confirmOperation(tezos, operation.opHash)
-          .finally(() => this.refresh())
+        operation.confirmation()
+          .then(() => this.refresh())
       );
     } catch (err) {
       console.error(err);

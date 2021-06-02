@@ -173,7 +173,6 @@ import {
   sharesToNat,
   toAssetSlug,
   findTezDex,
-  confirmOperation,
 } from "@/core";
 import NavTabs from "@/components/NavTabs.vue";
 import NavGovernance from "@/components/NavGovernance.vue";
@@ -353,8 +352,8 @@ export default class VoteBaker extends Vue {
       const operation = await batch.send();
 
       notifyConfirm(
-        confirmOperation(tezos, operation.opHash)
-          .finally(() => this.refresh())
+        operation.confirmation()
+          .then(() => this.refresh())
       );
     } catch (err) {
       console.error(err);
@@ -398,8 +397,8 @@ export default class VoteBaker extends Vue {
       const operation = await batch.send();
 
       notifyConfirm(
-        confirmOperation(tezos, operation.opHash)
-          .finally(() => this.refresh())
+        operation.confirmation()
+          .then(() => this.refresh())
       );
     } catch (err) {
       console.error(err);

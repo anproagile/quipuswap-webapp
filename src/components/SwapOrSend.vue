@@ -175,7 +175,6 @@ import {
   isTokenWhitelisted,
   getDexStorage,
   findTezDex,
-  confirmOperation,
 } from "@/core";
 import { notifyConfirm } from "../toast";
 
@@ -833,8 +832,8 @@ export default class SwapOrSend extends Vue {
       }
 
       notifyConfirm(
-         confirmOperation(tezos, operation!.opHash)
-          .finally(() => this.refresh())
+        operation!.confirmation()
+          .then(() => this.refresh())
       );
     } catch (err) {
       console.error(err);

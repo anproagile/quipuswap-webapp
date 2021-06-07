@@ -89,7 +89,7 @@ export const TOKEN_WHITELIST: WhitelistedToken[] = [
       decimals: 6,
       symbol: "USDtz",
       name: "USDtez",
-      thumbnailUri: "https://quipuswap.com/tokens/usdtz.png",
+      thumbnailUri: "https://usdtz.com/lightlogo10USDtz.png",
     },
   },
   {
@@ -100,7 +100,7 @@ export const TOKEN_WHITELIST: WhitelistedToken[] = [
       decimals: 18,
       symbol: "ETHtz",
       name: "ETHtez",
-      thumbnailUri: "https://quipuswap.com/tokens/ethtz.png",
+      thumbnailUri: "https://ethtz.io/ETHtz_purple.png",
     },
   },
   {
@@ -251,12 +251,6 @@ export const TOKEN_WHITELIST: WhitelistedToken[] = [
     network: Network.Main,
     type: "fa1.2",
     contractAddress: "KT1GRSvLoikDsXujKgZPsGLX8k8VvR2Tq95b",
-  },
-  {
-    network: Network.Main,
-    type: "fa2",
-    fa2TokenId: 0,
-    contractAddress: "KT1A5P4ejnLix13jtadsfV9GCnXLMNnab8UT",
   },
 
   /**
